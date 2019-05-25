@@ -164,8 +164,11 @@ void setup() {
     }
   }
   
-  // start serial connection
+  // Start serial connection if connected through Bluetooth
   bluetoothSerial.begin(9600);
+  
+  // Start Serial connection if connected through USB
+  Serial.begin(9600);
 }
 
 void readPrintMatrix64() {
@@ -175,6 +178,7 @@ void readPrintMatrix64() {
       int value = digitalRead(inputs64[j]);
       if (value != keys64State[i][j]) {
         bluetoothSerial.write(keys64Value[i][j]);
+        Serial.write(keys64Value[i][j]);
       }
       keys64State[i][j] = value;
     }
@@ -189,6 +193,7 @@ void readPrintMatrix16() {
       int value = digitalRead(inputs16[j]);
       if (value != keys16State[i][j]) {
         bluetoothSerial.write(keys16Value[i][j]);
+        Serial.write(keys16Value[i][j]);
       }
       keys16State[i][j] = value;
     }
