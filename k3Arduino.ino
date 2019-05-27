@@ -259,6 +259,8 @@ void setup() {
   mpu.initialize();
   pinMode(INTERRUPT_PIN, INPUT);
 
+  mpu.testConnection();
+
   // load and configure the DMP
   devStatus = mpu.dmpInitialize();
 
@@ -268,7 +270,6 @@ void setup() {
   mpu.setYGyroOffset(76);
   mpu.setZGyroOffset(-85);
   mpu.setZAccelOffset(1788);
-
 
   // make sure it worked (returns 0 if so)
   if (devStatus == 0) {
@@ -331,8 +332,12 @@ void loop() {
     return;
   }
 
-  // wait for MPU interrupt or extra packet(s) available
-  while (!mpuInterrupt && fifoCount < packetSize) {
+  // wait for MPU interrupt /* or extra packet(s) available - remove this part because it can prevent reading keys matrices */
+  while (!mpuInterrupt /* && fifoCount < packetSize */) {
+    if (mpuInterrupt && fifoCount < packetSize) {
+      // try to get out of the infinite loop 
+      fifoCount = mpu.getFIFOCount();
+    }
     // other program behavior stuff here
     readPrintMatrix64();
     readPrintMatrix16();    
@@ -346,12 +351,13 @@ void loop() {
   fifoCount = mpu.getFIFOCount();
 
   // check for overflow (this should never happen unless our code is too inefficient)
-  if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
+  if ((mpuIntStatus & _BV(MPU6050_INTERRUPT_FIFO_OFLOW_BIT)) || fifoCount >= 1024) {
     // reset so we can continue cleanly
     mpu.resetFIFO();
+    fifoCount = mpu.getFIFOCount();
     
   // otherwise, check for DMP data ready interrupt (this should happen frequently)
-  } else if (mpuIntStatus & 0x02) {
+  } else if (mpuIntStatus & _BV(MPU6050_INTERRUPT_DMP_INT_BIT)) {
     // wait for correct available data length, should be a VERY short wait
     while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
 
