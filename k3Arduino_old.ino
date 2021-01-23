@@ -1,9 +1,4 @@
 #include <SoftwareSerial.h>
-#include <stdlib.h>
-
-/*
- * Bluetooth
- */
 
 SoftwareSerial bluetoothSerial(10, 11); // RX, TX
 
@@ -17,12 +12,8 @@ const int outputs64Count = 8;
 byte inputs64[] = {32, 33, 34, 35, 36, 37, 38, 39};
 const int inputs64Count = 8;
 
-byte keys64lastState[outputs64Count][inputs64Count];
 byte keys64State[outputs64Count][inputs64Count];
-
 const char* keys64Value[outputs64Count][inputs64Count];
-
-unsigned long lastDebounceTime64[outputs64Count][inputs64Count];
 
 /*
  * Matrix 16
@@ -34,26 +25,17 @@ const int outputs16Count = 4;
 byte inputs16[] = {A5, A9, A10, A11};
 const int inputs16Count = 4;
 
-byte keys16lastState[outputs16Count][inputs16Count];
 byte keys16State[outputs16Count][inputs16Count];
 const char* keys16Value[outputs16Count][inputs16Count];
 
-unsigned long lastDebounceTime16[outputs16Count][inputs16Count];
-
 /*
- * General
+ * Vibration motor
  */
-
-unsigned long debounceDelay = 15;
+int pinVibrationMotor = 3;
+int incomingByte = 0;
 
 
 void setup() {
-
-  // Start serial connection if connected through Bluetooth
-  bluetoothSerial.begin(9600);
-  
-  // Start Serial connection if connected through USB
-  Serial.begin(9600);
 
   // R, G, U (blue), Y, W
   // 0123456789ABCDEF
@@ -147,7 +129,6 @@ void setup() {
   for (int i = 0; i < outputs64Count; i++) {
     for (int j = 0; j < inputs64Count; j++) {
       keys64State[i][j] = 1;
-      keys64lastState[i][j] = 1;
     }
   }
 
@@ -186,68 +167,33 @@ void setup() {
   for (int i = 0; i < outputs16Count; i++) {
     for (int j = 0; j < inputs16Count; j++) {
       keys16State[i][j] = 1;
-      keys16lastState[i][j] = 1;
     }
   }
+
+  pinMode(pinVibrationMotor, OUTPUT);
+  
+  // start serial connection if connected through Bluetooth
+  bluetoothSerial.begin(9600);
+  
+  // Start Serial connection if connected through USB
+  Serial.begin(9600);
 }
 
 void readPrintMatrix64() {
   for (int i = 0; i < outputs64Count; i++) {
     digitalWrite(outputs64[i], LOW);
     for (int j = 0; j < inputs64Count; j++) {
-      
       int value = digitalRead(inputs64[j]);
-
-      if (value != keys64lastState[i][j]) {
-        lastDebounceTime64[i][j] = millis();
+      if (value != keys64State[i][j]) {
+        bluetoothSerial.write(keys64Value[i][j]);
+        Serial.write(keys64Value[i][j]);
       }
-
-      if ((millis() - lastDebounceTime64[i][j]) > debounceDelay) {
-
-        if (value != keys64State[i][j]) {
-          keys64State[i][j] = value;
-
-          bluetoothSerial.write(keys64Value[i][j]);
-          Serial.write(keys64Value[i][j]);
-        }        
-      }
-      
-      keys64lastState[i][j] = value;
+      keys64State[i][j] = value;
     }
-    
     digitalWrite(outputs64[i], HIGH);
   }
 }
 
-void readPrintMatrix16() {
-  for (int i = 0; i < outputs16Count; i++) {
-    digitalWrite(outputs16[i], LOW);
-    for (int j = 0; j < inputs16Count; j++) {
-      
-      int value = digitalRead(inputs16[j]);
-
-      if (value != keys16lastState[i][j]) {
-        lastDebounceTime16[i][j] = millis();
-      }
-
-      if ((millis() - lastDebounceTime16[i][j]) > debounceDelay) {
-
-        if (value != keys16State[i][j]) {
-          keys16State[i][j] = value;
-
-          bluetoothSerial.write(keys16Value[i][j]);
-          Serial.write(keys16Value[i][j]);
-        }
-      }
-      
-      keys16lastState[i][j] = value;
-    }
-    
-    digitalWrite(outputs16[i], HIGH);
-  }
-}
-
-/*
 void readPrintMatrix16() {
   for (int i = 0; i < outputs16Count; i++) {
     digitalWrite(outputs16[i], LOW);
@@ -262,15 +208,20 @@ void readPrintMatrix16() {
     digitalWrite(outputs16[i], HIGH);
   }
 }
-*/
 
-//uint32_t ts1;
-//uint32_t ts2;
 void loop() {
-  //ts1 = micros();
   readPrintMatrix64();
   readPrintMatrix16();
-  //ts2 = micros();
-  // print the time interval in microseconds
-  //Serial.println(ts2-ts1);
+
+  if (Serial.available() > 0) {
+    // read the incoming byte:
+    incomingByte = Serial.read();
+
+    if (incomingByte == 49) {
+      digitalWrite(pinVibrationMotor, HIGH);
+    } 
+    if (incomingByte == 48) {
+      digitalWrite(pinVibrationMotor, LOW);
+    }
+  }
 }
